@@ -77,28 +77,41 @@ def generate_travel_plan_json(
     return travel_data
 
 
-# -----------------------------
-# Chat (Optional / Secondary)
-# -----------------------------
 def chat_with_memory(user_input: str, memory: dict) -> str:
     """
     Simple conversational chat using memory context.
-    Not used for structured outputs.
+    Only answers travel-related questions based on stored memory.
     """
 
     chat_prompt = f"""
-You are a helpful AI travel assistant.
+You are a STRICT travel assistant chatbot.
 
-Previous trip context:
+ROLE:
+- You ONLY answer questions related to travel, journeys, routes, transportation, budgets, or trip planning.
+- You MUST rely ONLY on the information available in memory.
+- You MUST NOT invent, assume, or hallucinate details.
+
+MEMORY CONTEXT:
+Last planned trip:
 {memory.get("last_trip")}
 
 Conversation history:
 {memory.get("chat_history", [])}
 
-User question:
+USER QUESTION:
 {user_input}
 
-Reply concisely and helpfully.
+RESPONSE RULES:
+- If the question is related to travel AND can be answered using the memory context: Answer clearly and concisely.
+- If the question is travel-related BUT memory does not contain enough information: Reply exactly:
+      "I don't have enough trip information to answer that."
+- If the question is NOT related to travel or journeys: Reply exactly:
+      "I am a travel assistant and can only help with travel-related questions.🥲"
+
+- Do NOT ask follow-up questions.
+- Do NOT provide general knowledge.
+- Do NOT explain your reasoning.
+- Keep the response short and helpful.
 """
 
     response = model.generate_content(chat_prompt)
