@@ -19,26 +19,30 @@ def build_prompt(source: str, destination: str, budget: int, start_date=None) ->
     prompt = f"""
 You are a professional travel planning system.
 
-Your task is to analyze the following trip details and return a structured travel plan.
+    Your task is to analyze the trip details below and return a structured travel plan.
 
-INPUT:
-Source: {source}
-Destination: {destination}
-{start_date_section}
-Budget: ₹{budget}
+    INPUT:
+    Source: {source}
+    Destination: {destination}
+    {start_date_section}
+    Budget: ₹{budget}
 
-IMPORTANT CONTEXT RULES:
-- Travel time is CRITICAL and must be included for every route
-- Cost estimates must be realistic and within the provided budget
-- If start date is specified, you MAY consider seasonal pricing
-- If start date is not specified, assume average pricing
+    VALIDATION RULES:
+    - Source and destination must be valid real-world place names.
+    - Source and destination must be in same country.
+    - Budget must be a numeric value.
+    - If source is invalid, return ONLY:
+    {{"error": "Enter a valid source🙂"}}
+    - If destination is invalid, return ONLY:
+    {{"error": "Enter a valid destination🙂"}}
 
-OUTPUT REQUIREMENTS:
-- You MUST return a valid JSON object
-- Do NOT include markdown
-- Do NOT include explanations
-- Do NOT include extra text
-- JSON must be directly parseable
+    TRAVEL RULES:
+    - Include MULTIPLE feasible travel routes.
+    - Travel time is mandatory for every route.
+    - Cost estimates must be realistic and within the given budget.
+    - Exclude any route exceeding the budget.
+    - If start date is provided, you MAY consider seasonal pricing.
+    - If start date is not provided, assume average pricing.
 
 JSON FORMAT:
 {{
