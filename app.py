@@ -45,15 +45,31 @@ generate_btn = st.sidebar.button("✨ Generate Travel Plan")
 # Generate Travel Plan
 # -----------------------------
 if generate_btn:
-    with st.spinner("✈️ Planning your journey..."):
-        travel_data = generate_travel_plan_json(
-            source=source,
-            destination=destination,
-            start_date=start_date,
-            budget=budget,
-            memory=memory
-        )
-        st.session_state.travel_data = travel_data
+    if not source.strip() or not destination.strip():
+        st.error("Please enter both valid source and destination")
+        st.stop()
+    spinner_placeholder = st.empty()
+
+    with spinner_placeholder:
+        st.markdown("⏳ Planning your journey...")
+
+    travel_data = generate_travel_plan_json(
+        source=source,
+        destination=destination,
+        start_date=start_date,
+        budget=budget,
+        memory=st.session_state.memory
+    )
+
+    # Remove spinner immediately
+    spinner_placeholder.empty()
+
+    # Handle LLM error response
+    if "error" in travel_data:
+        st.error(travel_data["error"])
+        st.stop()
+
+    st.session_state.travel_data = travel_data
 
 # -----------------------------
 # Render Travel Plan
