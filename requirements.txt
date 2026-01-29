@@ -1,9 +1,3 @@
 streamlit
-openai
-langchain
-torch
-transformers
-pandas
-numpy
 google-generativeai
-cffi
+dotenv
