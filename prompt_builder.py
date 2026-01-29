@@ -1,11 +1,22 @@
-def build_prompt(source, destination, budget, start_date=None):
+def build_prompt(source: str, destination: str, budget: int, start_date=None) -> str:
+    """
+    Build a prompt for the LLM to generate a structured travel plan as JSON.
+
+    Args:
+        source (str): Starting city/location
+        destination (str): Destination city/location
+        budget (int): Total budget in INR
+        start_date (datetime.date or None): Optional start date for the trip
+
+    Returns:
+        str: Formatted prompt string for the LLM
+    """
     start_date_section = (
-        f"Start Date: {start_date}\n"
-        if start_date else
-        "Start Date: Not specified (do NOT assume seasons or weather)\n"
+        f"Start Date: {start_date}\n" if start_date
+        else "Start Date: Not specified (do NOT assume seasons or weather)\n"
     )
 
-    return f"""
+    prompt = f"""
 You are a professional travel planning system.
 
 Your task is to analyze the following trip details and return a structured travel plan.
@@ -31,28 +42,28 @@ OUTPUT REQUIREMENTS:
 
 JSON FORMAT:
 {{
-  "source": string,
-  "destination": string,
-  "budget": number,
+  "source": "string",
+  "destination": "string",
+  "budget": "number",
   "routes": [
     {{
-      "route_name": string,
-      "estimated_travel_time": string,
-      "distance_km": number,
-      "available_vehicles": array of strings,
+      "route_name": "string",
+      "estimated_travel_time": "string",
+      "distance_km": "number",
+      "available_vehicles": ["string"],
       "estimated_cost": {{
-        "min": number,
-        "max": number,
+        "min": "number",
+        "max": "number",
         "currency": "INR"
       }},
-      "route_summary": string
+      "route_summary": "string"
     }}
   ],
-  "best_route_recommendation": string,
+  "best_route_recommendation": "string",
   "detailed_travel_plan": {{
-    "day_1": string,
-    "day_2": string,
-    "day_3": string
+    "day_1": "string",
+    "day_2": "string",
+    "day_3": "string"
   }}
 }}
 
@@ -66,3 +77,4 @@ CONTENT RULES:
 
 Return ONLY the JSON object.
 """
+    return prompt
