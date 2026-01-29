@@ -31,13 +31,12 @@ def build_prompt(source, destination, budget, start_date=None):
 
     VALIDATION RULES:
     - Source and destination must be valid real-world place names.
+    - Source and destination must be in same country.
     - Budget must be a numeric value.
-    - I source is invalid, return ONLY:
-    {{"error": "Enter a valid source"}}
-    - I destination is invalid, return ONLY:
-    {{"error": "Enter a valid destination"}}
-    - If any required input (source, destination, budget) is missing, return ONLY:
-    {{"error": "Please enter every inputs"}}
+    - If source is invalid, return ONLY:
+    {{"error": "Enter a valid source🙂"}}
+    - If destination is invalid, return ONLY:
+    {{"error": "Enter a valid destination🙂"}}
 
     TRAVEL RULES:
     - Include MULTIPLE feasible travel routes.
