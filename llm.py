@@ -103,6 +103,7 @@ USER QUESTION:
 
 RESPONSE RULES:
 - If the question is related to travel AND can be answered using the memory context: Answer clearly and concisely.
+- If the question is related to "Suggest Some Places at The Destination": Answer relevant places.
 - If the question is travel-related BUT memory does not contain enough information: Reply exactly:
       "I don't have enough trip information to answer that."
 - If the question is NOT related to travel or journeys: Reply exactly:
