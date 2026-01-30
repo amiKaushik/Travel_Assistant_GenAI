@@ -112,7 +112,7 @@ if "travel_data" in st.session_state:
             st.markdown(plan)
 
 # -----------------------------
-# Chatbot (Optional)
+# Chatbot
 # -----------------------------
 st.divider()
 st.subheader("💬 Travel Assistant Chat")
