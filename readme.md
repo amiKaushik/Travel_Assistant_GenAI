@@ -157,3 +157,5 @@ Thanks to open-source datasets and libraries that made this project possible.
 
 
 🐙 GitHub: https://github.com/amiKaushik/Travel_Assistant_GenAI
+
+Demo: [Video](https://drive.google.com/file/d/1-CZ-zO2XCQy3y7N3oPZAt7KWN2AVCLp1/view?usp=sharing)
