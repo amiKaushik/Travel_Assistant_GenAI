@@ -132,7 +132,7 @@ Amit Das
 🚀 Connect With Me
 📧 Email: 13amitdas07@gmail.com
 
-kousick Das
+Kaushik Das
 |Python | SQL | AI & ML Enthusiast
 🚀 Connect With Me
 📧 Email: kaushikdas.at@gmail.com
