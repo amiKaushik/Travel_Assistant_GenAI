@@ -147,15 +147,13 @@ Arpan Patra
 Harshit Kumar Rai
 |Python | SQL | AI & ML Enthusiast
 🚀 Connect With Me
-📧 Email:
+📧 Email:Raih44531@gmail.com
 
 
 
 ⭐ Acknowledgement
 
 Thanks to open-source datasets and libraries that made this project possible.
-
-🚀 Connect With Me
 
 
 🐙 GitHub: https://github.com/amiKaushik/Travel_Assistant_GenAI
