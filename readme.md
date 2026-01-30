@@ -135,7 +135,7 @@ Amit Das
 kousick Das
 |Python | SQL | AI & ML Enthusiast
 🚀 Connect With Me
-📧 Email: 
+📧 Email: kaushikdas.at@gmail.com
 
 
 Arpan Patra
