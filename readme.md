@@ -74,18 +74,6 @@ streamlit run app.py
 
 ## Authors
 
-Amit Das  
-Python | SQL | AI and ML Enthusiast  
-Email: 13amitdas07@gmail.com
-
 Kaushik Das  
 Python | SQL | AI and ML Enthusiast  
 Email: kaushikdas.at@gmail.com
-
-Arpan Patra  
-Python | SQL | AI and ML Enthusiast  
-Email: arpanpatra800188500@gmail.com
-
-Harshit Kumar Rai  
-Python | SQL | AI and ML Enthusiast  
-Email: Raih44531@gmail.com
