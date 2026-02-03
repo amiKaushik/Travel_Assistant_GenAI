@@ -27,6 +27,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+
 # -----------------------------
 # Initialize Memory
 # -----------------------------
@@ -37,7 +38,7 @@ memory = st.session_state.memory
 # Header
 # -----------------------------
 st.title("AI Travel Assistant")
-st.caption("Structured, smart, and interactive travel planning")
+st.caption(":blue[Structured], :green[smart], and :orange[interactive] travel planning")
 
 # -----------------------------
 # Sidebar Inputs
@@ -88,12 +89,14 @@ if generate_btn:
     except Exception as exc:
         spinner_placeholder.empty()
         st.error(f"Failed to generate plan: {exc}")
+        st.caption("If this keeps happening, please contact the author.")
         st.stop()
 
     spinner_placeholder.empty()
 
     if "error" in travel_data:
         st.error(travel_data["error"])
+        st.caption("If this keeps happening, please contact the author.")
         st.stop()
 
     st.session_state.travel_data = travel_data
@@ -109,7 +112,7 @@ with main_col:
 
         header_left, header_right = st.columns([3, 2])
         with header_left:
-            st.subheader("Trip Overview")
+            st.subheader(":violet[Trip Overview]")
             dest_line = " -> ".join(data.get("destinations", [])) or "N/A"
             st.markdown(
                 f"**{data['source']} -> {dest_line}**  \n"
@@ -141,7 +144,7 @@ with main_col:
 
         st.divider()
 
-        st.subheader("Route Comparison")
+        st.subheader(":blue[Route Comparison]")
         default_leg_names = []
         if data.get("destinations"):
             leg_source = data["source"]
@@ -174,12 +177,12 @@ with main_col:
 
         st.divider()
 
-        st.subheader("Best Route Recommendation")
+        st.subheader(":green[Best Route Recommendation]")
         st.success(data["best_route_recommendation"])
 
         st.divider()
 
-        st.subheader("Detailed Travel Plan")
+        st.subheader(":orange[Detailed Travel Plan]")
         plan_items = list(data["detailed_travel_plan"].items())
 
         def _day_key(item):
@@ -209,7 +212,7 @@ with chat_col:
     # -----------------------------
     # Chatbot (Right Panel)
     # -----------------------------
-    st.subheader("Travel Assistant Chat")
+    st.subheader(":orange[Travel Assistant Chat]")
     st.caption("Ask follow-up questions about your trip.")
 
     for role, msg in memory.get("chat_history", []):
@@ -221,3 +224,39 @@ with chat_col:
         response = chat_with_memory(user_input, memory)
         st.session_state.memory = memory
         st.info(response)
+
+st.markdown(
+    """
+<style>
+.footer {
+    background-color: #2c2c2c;
+    color: #f1f1f1;
+    padding: 10px;
+    text-align: center;
+    position: relative;
+    width: 100%;
+    bottom: 0;
+}
+.content {
+    min-height: calc(100vh - 100px);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+.footer a {
+    color: #64b5f6;
+}
+.footer a:hover {
+    text-decoration: underline;
+}
+</style>
+<div class="content">
+    <div></div>
+    <div class="footer">
+        <p><b>Contact Us</b></p>
+        <p>Ping me on GitHub: <a href="https://github.com/amiKaushik" target="_blank">https://github.com/amiKaushik</a></p>
+    </div>
+</div>
+    """,
+    unsafe_allow_html=True
+)

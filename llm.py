@@ -3,7 +3,7 @@ import json
 import time
 from dotenv import load_dotenv
 from pydantic import ValidationError
-from google import genai
+import google.genai as genai
 
 from prompt_builder import build_prompt
 from schema import validate_travel_plan
@@ -72,6 +72,22 @@ INVALID OUTPUT:
 """
 
 
+def _friendly_llm_error(exc: Exception) -> str:
+    text = str(exc)
+    upper = text.upper()
+    if "RESOURCE_EXHAUSTED" in upper or "429" in upper:
+        return (
+            "The AI service rate limit was exceeded. Please try again later."
+        )
+    if "API KEY" in upper or "INVALID" in upper or "401" in upper or "403" in upper:
+        return (
+            "The API key appears to be invalid or expired. Please update the API key."
+        )
+    if "DEADLINE" in upper or "TIMEOUT" in upper or "504" in upper:
+        return "The AI service timed out. Please try again in a moment."
+    return "The AI service is currently unavailable. Please try again later."
+
+
 # -----------------------------
 # Travel Plan (JSON)
 # -----------------------------
@@ -124,7 +140,8 @@ def generate_travel_plan_json(
             )
         except Exception as exc:
             if attempt == 1:
-                raise RuntimeError(f"LLM request failed: {exc}") from exc
+                friendly = _friendly_llm_error(exc)
+                raise RuntimeError(friendly) from exc
             time.sleep(1.5 * (attempt + 1))
             continue
         raw_text = response.text or ""
@@ -203,6 +220,7 @@ RESPONSE RULES:
 - Keep the response short and helpful.
 """
 
+    response = None
     for attempt in range(2):
         try:
             response = client.models.generate_content(
@@ -212,11 +230,14 @@ RESPONSE RULES:
             break
         except Exception as exc:
             if attempt == 1:
-                raise RuntimeError(f"LLM request failed: {exc}") from exc
+                friendly = _friendly_llm_error(exc)
+                return f"{friendly} Please contact the author."
             time.sleep(1.5 * (attempt + 1))
             continue
 
     memory.setdefault("chat_history", []).append(("user", user_input))
+    if response is None:
+        return "The AI service is currently unavailable. Please contact the author."
     memory["chat_history"].append(("assistant", response.text))
 
     return response.text

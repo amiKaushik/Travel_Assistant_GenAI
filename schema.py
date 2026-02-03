@@ -73,6 +73,38 @@ def validate_travel_plan(data: dict) -> dict:
     """
     # Backward compatibility: convert legacy route schema to new schema
     routes = data.get("routes")
+    def _normalize_option(opt: dict) -> dict:
+        mode = opt.get("mode") or opt.get("type") or "Route"
+        if "estimated_travel_time" in opt:
+            est_time = opt.get("estimated_travel_time")
+        elif "duration_hours" in opt:
+            est_time = f"{opt.get('duration_hours')} hr"
+        else:
+            est_time = "N/A"
+
+        distance = opt.get("distance_km")
+        if distance is None:
+            distance = opt.get("estimated_distance_km") or opt.get("distance") or 1
+
+        vehicles = opt.get("available_vehicles")
+        if vehicles is None:
+            vehicles = [mode.title()]
+
+        est_cost = opt.get("estimated_cost", {"min": 0, "max": 0, "currency": "INR"})
+        if isinstance(est_cost, (int, float)):
+            cost_val = float(est_cost)
+            est_cost = {"min": cost_val, "max": cost_val, "currency": "INR"}
+
+        summary = opt.get("route_summary", "")
+        return {
+            "mode": mode,
+            "estimated_travel_time": est_time,
+            "distance_km": distance,
+            "available_vehicles": vehicles,
+            "estimated_cost": est_cost,
+            "route_summary": summary
+        }
+
     if isinstance(routes, list):
         normalized_routes = []
         for idx, route in enumerate(routes):
@@ -90,22 +122,14 @@ def validate_travel_plan(data: dict) -> dict:
                                 "route_summary": ""
                             })
                         route["transport_options"] = transport_options
+                    elif all(isinstance(opt, dict) for opt in route["transport_options"]):
+                        route["transport_options"] = [_normalize_option(opt) for opt in route["transport_options"]]
                 normalized_routes.append(route)
                 continue
 
             # Legacy single-route format
             mode = route.get("mode") or route.get("route_name") or "Route"
-            transport_option = {
-                "mode": mode,
-                "estimated_travel_time": route.get("estimated_travel_time", "N/A"),
-                "distance_km": route.get("distance_km", 1),
-                "available_vehicles": route.get("available_vehicles", ["Unknown"]),
-                "estimated_cost": route.get("estimated_cost", {"min": 0, "max": 0, "currency": "INR"}),
-                "route_summary": route.get("route_summary", "")
-            }
-            if isinstance(transport_option["estimated_cost"], (int, float)):
-                cost_val = float(transport_option["estimated_cost"])
-                transport_option["estimated_cost"] = {"min": cost_val, "max": cost_val, "currency": "INR"}
+            transport_option = _normalize_option(route)
             leg_name = route.get("leg_name")
             if not leg_name:
                 from_city = route.get("from")
