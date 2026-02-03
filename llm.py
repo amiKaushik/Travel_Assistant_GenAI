@@ -1,8 +1,9 @@
 import os
 import json
-import google.generativeai as genai
+import time
 from dotenv import load_dotenv
 from pydantic import ValidationError
+from google import genai
 
 from prompt_builder import build_prompt
 from schema import validate_travel_plan
@@ -13,9 +14,12 @@ from providers import GeoapifyProvider, ProviderError
 # Config
 # -----------------------------
 load_dotenv()
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+_api_key = os.getenv("GEMINI_API_KEY")
+if not _api_key:
+    raise RuntimeError("GEMINI_API_KEY is not set")
 
-model = genai.GenerativeModel("gemini-2.5-flash-lite")
+client = genai.Client(api_key=_api_key)
+MODEL_NAME = "gemini-2.5-flash-lite"
 
 
 # -----------------------------
@@ -113,7 +117,16 @@ def generate_travel_plan_json(
     travel_data = None
     last_error = None
     for attempt in range(2):
-        response = model.generate_content(prompt)
+        try:
+            response = client.models.generate_content(
+                model=MODEL_NAME,
+                contents=prompt
+            )
+        except Exception as exc:
+            if attempt == 1:
+                raise RuntimeError(f"LLM request failed: {exc}") from exc
+            time.sleep(1.5 * (attempt + 1))
+            continue
         raw_text = response.text or ""
         try:
             parsed = _safe_json_parse(raw_text)
@@ -190,7 +203,18 @@ RESPONSE RULES:
 - Keep the response short and helpful.
 """
 
-    response = model.generate_content(chat_prompt)
+    for attempt in range(2):
+        try:
+            response = client.models.generate_content(
+                model=MODEL_NAME,
+                contents=chat_prompt
+            )
+            break
+        except Exception as exc:
+            if attempt == 1:
+                raise RuntimeError(f"LLM request failed: {exc}") from exc
+            time.sleep(1.5 * (attempt + 1))
+            continue
 
     memory.setdefault("chat_history", []).append(("user", user_input))
     memory["chat_history"].append(("assistant", response.text))
