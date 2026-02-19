@@ -1,79 +1,115 @@
-# AI Travel Assistant Bot
+# AI Travel Assistant
 
 ## Overview
+This is a Streamlit travel planning app focused on **India‑only** trips. It generates structured, budget‑aware itineraries and shows **real routing distance/time** using Geoapify. The UI is a dashboard with route comparison, interactive map, and a right‑side chat panel.
 
-The AI Travel Assistant Bot is a web-based travel planning system powered by the Gemini 2.5 Flash Lite model. It generates structured, budget-aware travel plans and includes a travel-only chatbot for follow-up questions.
-
-This version integrates real routing data (distance and travel time) via Geoapify to improve reliability.
-
----
-
-## Key Features
-
-* Uses a pre-trained LLM (no fine-tuning required)
-* Accepts user inputs:
-  * Source
-  * Destination
-  * Budget
-  * Optional start date
-* Fetches real routing distance/time for India routes (Geoapify)
-* Produces multiple route options with vehicles, time, and costs
-* Validates model output with schema checks and retries on errors
-* Includes a travel-only chatbot with session memory
+This version also includes a **"Suggest Travel Places"** flow for users who **don’t know where to go**. Suggestions are **source‑biased** and can display **curated Cloudinary images** via a CSV mapping.
 
 ---
 
-## Tech Stack
+## What We Implemented (So Far)
 
-* Python
-* Streamlit
-* Google Generative AI (Gemini 2.5 Flash Lite)
-* Geoapify Routing + Geocoding
-* Pydantic (schema validation)
+### Core travel planning
+* Multi‑destination input (comma‑separated): builds **legs** like `Kolkata -> Digha -> Puri`.
+* Single destination: **one leg** with multiple transport options.
+* Exact **date tabs** if a start date is provided (e.g., `29 JAN THU`).
+* Strict **schema validation** with backward‑compat normalizers.
+* **Geoapify routing** for distance/time with graceful fallback.
+
+### India‑only enforcement
+* Source/destination geocoded.
+* If any stop is outside India: show a large, friendly message:
+  * “Sorry, we don't support international travels 👀”
+  * “We encourage you to visit our beautiful India 😋”
+
+### UI / UX updates
+* Dashboard layout with KPIs, route table, and map.
+* Right‑side chat panel.
+* Colored section headers using `:color[]`.
+* Map showing straight‑line legs + stop markers (PyDeck).
+
+### Suggestions (No destination case)
+* **Suggest Travel Places** button only when destination is empty or international.
+* Suggestions are biased to the source + a few all‑India picks.
+* Each suggestion opens in a tab with a **curated image** from Cloudinary (CSV mapping).
+
+### Reliability & errors
+* Friendly error messages for rate limit, invalid key, and timeouts.
+* No crashes on LLM failure—clean UI feedback.
+
+---
+
+## What We Removed
+* Unsplash and Wikimedia image fetches (replaced by curated Cloudinary URLs).
+* Unreliable public image search sources.
+
+---
+
+## Current Design Decisions
+* **India‑only** travel.
+* **Curated images** via CSV mapping to Cloudinary public URLs.
+* **Model**: Gemini 2.5 Flash Lite via `google-genai`.
+* **Transport options** per leg; not individual LLM routes.
 
 ---
 
 ## Setup
 
-1. Install dependencies:
-
+### 1) Install dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-2. Create a `.env` file with:
-
+### 2) Environment variables
+Create a `.env` file:
 ```bash
 GEMINI_API_KEY=your_gemini_key
 GEOAPIFY_API_KEY=your_geoapify_key
 ```
 
-3. Run the app:
+### 3) Curated images (Cloudinary)
+Create or edit `places.csv` with **public** Cloudinary links:
+```
+place,image_url,characteristics
+Kolkata,https://res.cloudinary.com/<cloud>/image/upload/v1/TravelPlacesIndia/kolkata.jpg,city culture food heritage
+Darjeeling,https://res.cloudinary.com/<cloud>/image/upload/v1/TravelPlacesIndia/darjeeling.jpg,tea hills mountain view sunrise
+```
 
+### 4) Run
 ```bash
 streamlit run app.py
 ```
 
 ---
 
-## Notes
-
-* Route distance and travel time come from Geoapify.
-* Cost estimates are distance-based heuristics and may vary.
-
----
-
-## Future Enhancements
-
-* Real-time pricing integrations
-* Multi-city and round-trip planning
-* User profile and preference memory
-* Exportable itineraries
+## Key Files
+* `app.py` — UI, map, suggestions, and India‑only checks
+* `llm.py` — LLM calls, retries, and suggestion generation
+* `schema.py` — validation + normalization
+* `providers.py` — Geoapify routing + geocoding
+* `places.csv` — curated image mapping for suggestions
 
 ---
 
-## Authors
+## Current Behavior (Quick Summary)
+* If destination is empty → Suggest button appears.
+* If destination is outside India → big friendly message + Suggest button.
+* If Geoapify fails → LLM still returns routes.
+* If LLM rate‑limited → clean UI message (no crash).
 
+---
+
+## Future Improvements
+* Road‑geometry map lines (not straight‑line legs)
+* User preference filters (temples, food, mountains, nightlife)
+* Multiple images per place (carousel)
+* PDF export for itineraries
+* Persistent saved trips
+* FastAPI backend separation
+* Tests + CI pipeline
+
+---
+
+## Author (This Branch)
 Kaushik Das  
-Python | SQL | AI and ML Enthusiast  
 Email: kaushikdas.at@gmail.com

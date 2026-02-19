@@ -56,8 +56,16 @@ class GeoapifyProvider:
         return {
             "lat": results[0]["lat"],
             "lon": results[0]["lon"],
-            "formatted": results[0].get("formatted", place)
+            "formatted": results[0].get("formatted", place),
+            "country": results[0].get("country"),
+            "country_code": results[0].get("country_code")
         }
+
+    def geocode_place(self, place: str) -> dict:
+        """
+        Public geocode helper for UI map rendering.
+        """
+        return self._geocode(place)
 
     @lru_cache(maxsize=256)
     def _route(self, source_key: str, dest_key: str, mode: str) -> dict:

@@ -1,8 +1,11 @@
+﻿import csv
 import datetime
 import os
 import streamlit as st
+import pydeck as pdk
 
-from llm import generate_travel_plan_json, chat_with_memory
+from llm import generate_travel_plan_json, chat_with_memory, suggest_places
+from providers import GeoapifyProvider, ProviderError
 from memory import init_memory
 
 
@@ -17,6 +20,133 @@ def _pick_best_option(routes: list[dict]) -> dict | None:
     return sorted(options, key=lambda r: r["estimated_cost"]["min"])[0]
 
 
+@st.cache_data(show_spinner=False)
+def _geocode_stops(source: str, destinations: list[str]) -> list[dict]:
+    provider = GeoapifyProvider()
+    stops = []
+    start = provider.geocode_place(source)
+    stops.append({
+        "name": source,
+        "lat": start["lat"],
+        "lon": start["lon"]
+    })
+    for dest in destinations:
+        item = provider.geocode_place(dest)
+        stops.append({
+            "name": dest,
+            "lat": item["lat"],
+            "lon": item["lon"]
+        })
+    return stops
+
+
+@st.cache_data(show_spinner=False)
+def _normalize_place(value: str) -> str:
+    cleaned = "".join(ch if ch.isalnum() or ch.isspace() else " " for ch in value.lower())
+    return " ".join(cleaned.strip().split())
+
+
+def _place_aliases(row: dict, place: str) -> list[str]:
+    aliases: list[str] = [place]
+    for key in ("City", "city", "State", "state", "Place Name", "place_name"):
+        value = (row.get(key) or "").strip()
+        if value:
+            aliases.append(value)
+    return aliases
+
+
+@st.cache_data(show_spinner=False)
+def _load_places_index(csv_paths: tuple[str, ...] = (".data/places.csv", "places.csv")) -> dict[str, list[dict]]:
+    index: dict[str, list[dict]] = {}
+    for csv_path in csv_paths:
+        if not os.path.exists(csv_path):
+            continue
+        with open(csv_path, "r", encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                place = (
+                    row.get("place")
+                    or row.get("Place")
+                    or row.get("place_name")
+                    or row.get("Place Name")
+                    or row.get("City")
+                    or ""
+                ).strip()
+                if not place:
+                    continue
+
+                image_url = (
+                    row.get("image_url")
+                    or row.get("Image Link")
+                    or row.get("image_link")
+                    or ""
+                ).strip()
+                characteristics = (
+                    row.get("characteristics")
+                    or row.get("Image Scenery")
+                    or row.get("Description")
+                    or ""
+                ).strip()
+                entry = {
+                    "place": place,
+                    "image_url": image_url,
+                    "characteristics": characteristics,
+                    "city": (row.get("City") or row.get("city") or "").strip(),
+                    "state": (row.get("State") or row.get("state") or "").strip(),
+                    "country": (row.get("Country") or row.get("country") or "").strip(),
+                    "image_source": (row.get("Image Source") or row.get("image_source") or "").strip(),
+                    "actual_link": (row.get("Actual Link") or row.get("actual_link") or "").strip()
+                }
+
+                for alias in _place_aliases(row, place):
+                    key = _normalize_place(alias)
+                    if key:
+                        index.setdefault(key, []).append(entry)
+    return index
+
+
+def _find_place_entries(places_index: dict[str, list[dict]], place: str) -> list[dict]:
+    key = _normalize_place(place)
+    exact = places_index.get(key, [])
+    if exact:
+        return exact
+
+    matches: list[dict] = []
+    for candidate_key, items in places_index.items():
+        if key in candidate_key or candidate_key in key:
+            matches.extend(items)
+    return matches
+
+
+def _prioritize_suggestions(source: str, llm_places: list[str], places_index: dict[str, list[dict]], limit: int = 6) -> list[str]:
+    src = _normalize_place(source)
+    local: list[str] = []
+    seen_local: set[str] = set()
+
+    for items in places_index.values():
+        for entry in items:
+            place_name = (entry.get("place") or "").strip()
+            if not place_name:
+                continue
+            city_key = _normalize_place(entry.get("city") or "")
+            place_key = _normalize_place(place_name)
+            state_key = _normalize_place(entry.get("state") or "")
+            if src and (src == city_key or src in place_key or src == state_key):
+                dedupe = _normalize_place(place_name)
+                if dedupe not in seen_local:
+                    seen_local.add(dedupe)
+                    local.append(place_name)
+
+    ranked: list[str] = []
+    seen_ranked: set[str] = set()
+    for place in local + llm_places:
+        key = _normalize_place(place)
+        if key and key not in seen_ranked:
+            seen_ranked.add(key)
+            ranked.append(place)
+        if len(ranked) >= limit:
+            break
+    return ranked
 # -----------------------------
 # Page Config
 # -----------------------------
@@ -65,13 +195,42 @@ budget = st.sidebar.number_input("Budget (INR)", min_value=1000, step=500)
 
 generate_btn = st.sidebar.button("Generate Travel Plan")
 
+destinations = [d.strip() for d in destination_input.split(",") if d.strip()]
+international_block = False
+if destinations and source.strip():
+    try:
+        provider = GeoapifyProvider()
+        source_info = provider.geocode_place(source)
+        dest_infos = [provider.geocode_place(d) for d in destinations]
+        all_places = [source_info] + dest_infos
+        if any((p.get("country_code") or "").lower() != "in" for p in all_places):
+            international_block = True
+    except ProviderError:
+        st.error("Unable to validate location. Please try a more specific place name.")
+        st.stop()
+
 # -----------------------------
 # Generate Travel Plan
 # -----------------------------
 if generate_btn:
-    destinations = [d.strip() for d in destination_input.split(",") if d.strip()]
     if not source.strip() or not destinations:
         st.error("Please enter a valid source and at least one destination.")
+        st.stop()
+
+    if international_block:
+        st.markdown(
+            """
+<div style="padding: 16px 20px; border: 2px dashed #f59e0b; border-radius: 16px; text-align: center;">
+  <div style="font-size: 28px; font-weight: 700; color: #b45309;">
+    Sorry, we don't support international travels &#128064;
+  </div>
+  <div style="font-size: 20px; margin-top: 6px; color: #92400e;">
+    We encourage you to visit our beautiful India &#128523;
+  </div>
+</div>
+            """,
+            unsafe_allow_html=True
+        )
         st.stop()
 
     spinner_placeholder = st.empty()
@@ -100,10 +259,70 @@ if generate_btn:
         st.stop()
 
     st.session_state.travel_data = travel_data
-
 main_col, chat_col = st.columns([3.2, 1.3])
 
 with main_col:
+    show_suggest = (not destinations) or international_block
+    if show_suggest:
+        st.subheader(":yellow[Suggest Travel Places]")
+        if international_block:
+            st.markdown(
+                """
+<div style="padding: 16px 20px; border: 2px dashed #f59e0b; border-radius: 16px; text-align: center;">
+  <div style="font-size: 28px; font-weight: 700; color: #b45309;">
+    Sorry, we don't support international travels &#128064;
+  </div>
+  <div style="font-size: 20px; margin-top: 6px; color: #92400e;">
+    We encourage you to visit our beautiful India &#128523;
+  </div>
+</div>
+                """,
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown("Not sure where to go? Get India-focused suggestions based on your source.")
+
+        places_index = _load_places_index()
+        if not places_index:
+            st.info("Add .data/places.csv (or places.csv) to enable Cloudinary images for suggestions.")
+
+        if "suggested_places" not in st.session_state:
+            st.session_state.suggested_places = []
+            st.session_state.suggest_source = ""
+
+        if st.button("Suggest Travel Places"):
+            if not source.strip():
+                st.error("Please enter a source first.")
+            else:
+                llm_places = suggest_places(source)
+                st.session_state.suggested_places = _prioritize_suggestions(source, llm_places, places_index)
+                st.session_state.suggest_source = source
+                if not st.session_state.suggested_places:
+                    st.warning("Could not generate suggestions right now. Try again in a moment.")
+
+        if st.session_state.suggested_places:
+            st.caption(f"Suggestions based on: {st.session_state.suggest_source}")
+            tabs = st.tabs(st.session_state.suggested_places)
+            for tab, place in zip(tabs, st.session_state.suggested_places):
+                with tab:
+                    entries = _find_place_entries(places_index, place)
+                    if entries:
+                        entry = entries[0]
+                        if entry.get("image_url"):
+                            st.image(entry["image_url"], use_container_width=True)
+                        if entry.get("characteristics"):
+                            st.caption(f"Tags: {entry['characteristics']}")
+                        source_name = (entry.get("image_source") or "").strip()
+                        source_link = (entry.get("actual_link") or "").strip()
+                        if source_name and source_link:
+                            st.markdown(f"Source: [{source_name}]({source_link})")
+                        elif source_link:
+                            st.markdown(f"Source: [Original Image Link]({source_link})")
+                        elif source_name:
+                            st.caption(f"Source: {source_name}")
+                    else:
+                        st.info("No curated image found for this place yet.")
+
     # -----------------------------
     # Render Travel Plan
     # -----------------------------
@@ -141,6 +360,50 @@ with main_col:
                 "Cost (INR)",
                 f"{best_option['estimated_cost']['min']} - {best_option['estimated_cost']['max']}"
             )
+
+        st.divider()
+
+        st.subheader(":yellow[Interactive Route Map]")
+        try:
+            stops = _geocode_stops(data["source"], data.get("destinations", []))
+            lines = []
+            for i in range(len(stops) - 1):
+                lines.append({
+                    "from": [stops[i]["lon"], stops[i]["lat"]],
+                    "to": [stops[i + 1]["lon"], stops[i + 1]["lat"]]
+                })
+
+            line_layer = pdk.Layer(
+                "LineLayer",
+                data=lines,
+                get_source_position="from",
+                get_target_position="to",
+                get_color=[14, 116, 144],
+                get_width=4
+            )
+            point_layer = pdk.Layer(
+                "ScatterplotLayer",
+                data=stops,
+                get_position=["lon", "lat"],
+                get_radius=6000,
+                get_fill_color=[37, 99, 235],
+                pickable=True
+            )
+            view_state = pdk.ViewState(
+                latitude=stops[0]["lat"],
+                longitude=stops[0]["lon"],
+                zoom=5
+            )
+            st.pydeck_chart(
+                pdk.Deck(
+                    layers=[line_layer, point_layer],
+                    initial_view_state=view_state,
+                    tooltip={"text": "{name}"}
+                ),
+                use_container_width=True
+            )
+        except (ProviderError, Exception):
+            st.info("Map could not be loaded for these locations.")
 
         st.divider()
 
@@ -260,3 +523,11 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
+
+
+
+
+
+
+
